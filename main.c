@@ -7,7 +7,7 @@
 /* Entrance size */
 #define ESIZE 4
 /* Simulation duration */
-#define SIMSIZE 10000
+#define SIMSIZE 100000
 
 /* Entrances parameters
    f - Mean time between vehicle arrivals	
@@ -21,7 +21,8 @@ const double d[ESIZE][ESIZE] = { {0.1, 0.2, 0.5, 0.2},  /*N*/
 			   {0.5, 0.1, 0.1, 0.3},  /*S*/
 			   {0.3, 0.4, 0.2, 0.1}};  /*E*/
 
-typedef enum {N,S,W,E} ExitRoute;	
+typedef enum {N,S,W,E} ExitRoute;
+static const char *directions[] = {"N", "W", "S", "E"};	
 
 /* Data stuctures representing the traffic circle:
    circle - current state of traffic circle
@@ -81,6 +82,8 @@ int main (int argc, char* argv[])
 	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+
+	initialize_arrays();
   
 	/* Main simulation loop */
 	while (steps++ < SIMSIZE){
@@ -98,23 +101,27 @@ int main (int argc, char* argv[])
 		/* 2 step - cars inside circle advance simulataneously */
 		for(i=0;i<CSIZE;++i){
 			j = (i+1) % 16;
-			if (circle[i] == 1 || circle[i] == j) {
+			if (circle[i] == -1 || circle[i] == j) {
 				new_circle[j] = -1;
 			} else {
 				new_circle[j] = circle[i];
 			}
 		}	
-		circle = new_circle;
+
+		/* Replace content of circle with new_circle */
+		for(i=0;i<CSIZE;++i){
+			circle[i] = new_circle[i];
+		}
 			
 		/*3 step - cars enter circle */
 		for(i=0;i<ESIZE;++i){
 			if (circle[offset[i]] == -1) {		/* There is a space for a car to enter */
 				if(queue[i] > 0){		/* Car waiting in the queue enters the circle */
 					queue[i] -= 1;
-					circle[offset[i]] = choose_exit(i); //TODO
+					circle[offset[i]] = choose_exit(i); 
 				} else if (arrival[i] > 0) {	/* Newly arrived car enters the circle */
 					arrival[i] = 0;
-					circle[offset[i]] = choose_exit(i) //TODO
+					circle[offset[i]] = choose_exit(i); 
 				}
 			}
 
@@ -124,11 +131,24 @@ int main (int argc, char* argv[])
 			}
 		}
 		
-		for(i=0;i<CSIZE;++i){
-			queue_accum[i] = queue_accum[i] + queue[i];		
+		for(i=0;i<ESIZE;++i){
+			queue_accum[i] += queue[i];		
 		}
-		
-	}	/* End of iteration */ 
+
+	}	/* End of main loop */ 
+
+	/* Generate results */
+	double probability, queue_avg_length;
+	printf("Algorithm results: \n");
+	printf("----------------------------------------------------- \n");	
+	for(i=0;i<ESIZE;++i){
+		probability = (double)wait_cnt[i]/(double)arrival_cnt[i];
+		queue_avg_length = (double)queue_accum[i]/SIMSIZE;		
+		printf("For entrance: %s \n", directions[i]);
+		printf("Probability of waiting: %lf \n", probability);
+		printf("Average queue length: %lf \n", queue_avg_length);
+		printf("----------------------------------------------------- \n");
+	}
 
 	MPI_Finalize();
 	return 0; 
