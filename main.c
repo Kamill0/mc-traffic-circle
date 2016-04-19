@@ -19,7 +19,9 @@ const int f[ESIZE] = {3,3,4,2};
 const double d[ESIZE][ESIZE] = { {0.1, 0.2, 0.5, 0.2},  /*N*/
 			   {0.2, 0.1, 0.3, 0.4},  /*W*/
 			   {0.5, 0.1, 0.1, 0.3},  /*S*/
-			   {0.3, 0.4, 0.2, 0.1}};  /*E*/	
+			   {0.3, 0.4, 0.2, 0.1}};  /*E*/
+
+typedef enum {N,S,W,E} ExitRoute;	
 
 /* Data stuctures representing the traffic circle:
    circle - current state of traffic circle
@@ -53,7 +55,18 @@ void initialize_arrays(){
 	@arg index - integer value of the index, representing the entrance that the car used to enter the traffic circle
 	@return - integer value of the index, representing the entrance that the car will use to leave the traffic circle  */
 int choose_exit(int index){
-
+	ExitRoute er;
+	double u =  (double)rand() / (double)RAND_MAX;
+	if (u < d[index][0]){
+		er = N;
+	} else if (u < (d[index][0] + d[index][1])) {
+		er = W;
+	} else if (u < (d[index][0] + d[index][1] + d[index][2])) {
+		er = S;
+	} else {
+		er = E;
+	}
+	return offset[er];
 }
 
 
