@@ -1,6 +1,13 @@
-#include <mpi.h>
+#if __GNUC__ > 3
+ #include <string.h>
+ #include <iostream>
+#else
+ #include <iostream.h>
+#endif
 #include <stdio.h>
-#include <stdlib.h>
+#include <mpi.h>		/* MPI header file */
+
+#include "sprng_cpp.h"
 
 /* Circle size */
 #define CSIZE 16
@@ -13,13 +20,13 @@
    f - Mean time between vehicle arrivals	
    d - matrix of probabilities that car entering at i will exit at j  */
 
-	           /* N W S E */
+	     	   /* N W S E */
 const int f[ESIZE] = {3,3,4,2};  
 			   	/* N    W    S    E */
-const double d[ESIZE][ESIZE] = {{0.1, 0.2, 0.5, 0.2},  /*N*/
+const double d[ESIZE][ESIZE] = {{0.1, 0.2, 0.5, 0.2}, /*N*/
 			   	{0.2, 0.1, 0.3, 0.4},  /*W*/
 			   	{0.5, 0.1, 0.1, 0.3},  /*S*/
-			  	{0.3, 0.4, 0.2, 0.1}}; /*E*/
+			   	{0.3, 0.4, 0.2, 0.1}}; /*E*/
 
 typedef enum {N,W,S,E} ExitRoute;
 static const char *directions[] = {"N", "W", "S", "E"};	
@@ -52,13 +59,14 @@ void initialize_arrays(){
 	}
 }
  
-/*	function choose_exit - determines on which of the four entrances (N/S/W/E) car will leave the traffic circle 
+/*	function choose_exit - determines on which of the four entrances (N/S/W/E) car will leave the traffic circle
+	@arg stream - pointer to the sprng generator initialized in main function 
 	@arg index - integer value of the index, representing the entrance that the car used to enter the traffic circle
 	@return - integer value of the index, representing the entrance that the car will use to leave the traffic circle  */
 
-int choose_exit(int index){
+int choose_exit(Sprng *stream, int index){
 	ExitRoute er;
-	double u =  (double)rand() / (double)RAND_MAX;
+	double u =  stream->sprng();
 	if (u < d[index][0]){
 		er = N;
 	} else if (u < (d[index][0] + d[index][1])) {
@@ -77,8 +85,9 @@ int choose_exit(int index){
 */
 int main (int argc, char* argv[])
 {
-	int i, j, steps, numprocs, myid;
+	int i, j, steps, numprocs, myid, streamnum, nstreams, gtype;
 	double u;
+	Sprng *stream;
 
 	/* Arrays for accumulating results from all of the nodes*/
 	int sum_wait_cnt[ESIZE], sum_arrival_cnt[ESIZE], sum_queue_accum[ESIZE];
@@ -87,14 +96,23 @@ int main (int argc, char* argv[])
 	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
+  	streamnum = myid;	
+  	nstreams = numprocs;
+
+	/* Fixed as 2 type generator */
+	gtype = 2;	
+	MPI_Bcast(&gtype,1,MPI_INT,0,MPI_COMM_WORLD);
+ 	stream = SelectType(gtype);
+
 	initialize_arrays();
   
-	srand(time(NULL));
+	stream->init_sprng(streamnum,nstreams,make_sprng_seed(),SPRNG_DEFAULT);
+
 	/* Main simulation loop */
 	while (steps++ < SIMSIZE){
 		/* 1 step - new cars arrive at entrances */
 		for(i=0;i<ESIZE;++i){
-			u =  (double)rand() / (double)RAND_MAX;
+			u =  stream->sprng();
 			if (u <= 1./(double)f[i]){
 				arrival[i] = 1;
 				arrival_cnt[i]++;
@@ -123,10 +141,10 @@ int main (int argc, char* argv[])
 			if (circle[offset[i]] == -1) {		/* There is a space for a car to enter */
 				if(queue[i] > 0){		/* Car waiting in the queue enters the circle */
 					queue[i]--;
-					circle[offset[i]] = choose_exit(i); 
+					circle[offset[i]] = choose_exit(stream, i); 
 				} else if (arrival[i] > 0) {	/* Newly arrived car enters the circle */
 					arrival[i] = 0;
-					circle[offset[i]] = choose_exit(i); 
+					circle[offset[i]] = choose_exit(stream, i); 
 				}
 			}
 
@@ -164,6 +182,7 @@ int main (int argc, char* argv[])
 		}
 	}
 
+	stream->free_sprng();
 	MPI_Finalize();
 	return 0; 
 }	
