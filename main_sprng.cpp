@@ -9,6 +9,11 @@
 
 #include "sprng_cpp.h"
 
+
+/* Compile with:
+     mpicxx -DSPRNG_MPI -DUSE_MPI -o main_sprng \
+     main_sprng.cpp -I/opt/nfs/sprng5/include -L/opt/nfs/sprng5/lib -lsprng */
+
 /* Circle size */
 #define CSIZE 16
 /* Entrance size */
