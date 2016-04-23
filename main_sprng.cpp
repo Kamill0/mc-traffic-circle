@@ -11,8 +11,12 @@
 
 
 /* Compile with:
+- on local
      mpicxx -DSPRNG_MPI -DUSE_MPI -o main_sprng \
-     main_sprng.cpp -I/opt/nfs/sprng5/include -L/opt/nfs/sprng5/lib -lsprng */
+     main_sprng.cpp -I/opt/nfs/sprng5/include -L/opt/nfs/sprng5/lib -lsprng 
+- in lab
+     /opt/nfs/mpich-3.1/bin/mpicxx -DSPRNG_MPI -DUSE_MPI -o sprng_mpi \
+     sprng_mpi.cpp -I/opt/nfs/sprng5/include -L/opt/nfs/sprng5/lib -lsprng  */
 
 /* Circle size */
 #define CSIZE 16
