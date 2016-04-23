@@ -29,13 +29,9 @@
    f - Mean time between vehicle arrivals	
    d - matrix of probabilities that car entering at i will exit at j  */
 
-	     	   /* N W S E */
-const int f[ESIZE] = {3,3,4,2};  
-			   	/* N    W    S    E */
-const double d[ESIZE][ESIZE] = {{0.1, 0.2, 0.5, 0.2}, /*N*/
-			   	{0.2, 0.1, 0.3, 0.4},  /*W*/
-			   	{0.5, 0.1, 0.1, 0.3},  /*S*/
-			   	{0.3, 0.4, 0.2, 0.1}}; /*E*/
+int f[ESIZE];  
+double d[ESIZE][ESIZE]; 
+
 
 typedef enum {N,W,S,E} ExitRoute;
 static const char *directions[] = {"N", "W", "S", "E"};	
@@ -43,8 +39,9 @@ static const char *directions[] = {"N", "W", "S", "E"};
 /* Data stuctures representing the traffic circle:
    circle - current state of traffic circle
    new-circle - next state of traffic circle  */
-
 int circle[CSIZE], new_circle[CSIZE];
+
+int gtype;
 
 /* Data structures representing the four entrances:
    offset - each entrance's location (index) in traffic circle
@@ -66,6 +63,44 @@ void initialize_arrays(){
 	for(i=0;i<ESIZE;++i){
 		arrival[i] = wait_cnt[i] = arrival_cnt[i] = queue[i] = queue_accum[i] = 0;
 	}
+}
+
+/*	function load_default - in case of input file opening failure, initializes simulation parameters with default values  */
+
+void load_default(){
+			     /* N W S E */	
+	int f_default[ESIZE] = {3,3,4,2};
+					  /* N    W    S    E */	
+	double d_default[ESIZE][ESIZE] = {{0.1, 0.2, 0.5, 0.2},  /*N*/
+	     				  {0.2, 0.1, 0.3, 0.4},  /*W*/
+	     				  {0.5, 0.1, 0.1, 0.3},  /*S*/
+	     				  {0.3, 0.4, 0.2, 0.1}}; /*E*/
+	memcpy(f, f_default, sizeof f);
+	memcpy(d, d_default, sizeof d);
+	gtype = 2;
+}
+
+
+/*	function load_data - reads following data from file: type of generator, array f, matrix d  */
+
+void load_data(){
+	int lines = 0, i, j;
+	FILE *file = fopen("input_data.txt","r");
+	if(!file){
+		printf("Cannot open file for reading, initializing with default values");
+		load_default();
+		return;
+	}
+
+	fscanf(file, "%d", &gtype);
+	fscanf(file, "%d %d %d %d", &f[0], &f[1], &f[2], &f[3]);
+
+	while(!feof(file)){
+		fscanf(file, "%lf %lf %lf %lf", &d[lines][0], &d[lines][1], &d[lines][2], &d[lines][3]);
+		lines++;
+	}
+
+	fclose(file);
 }
  
 /*	function choose_exit - determines on which of the four entrances (N/S/W/E) car will leave the traffic circle
@@ -94,7 +129,7 @@ int choose_exit(Sprng *stream, int index){
 */
 int main (int argc, char* argv[])
 {
-	int i, j, steps, numprocs, myid, streamnum, nstreams, gtype;
+	int i, j, steps, numprocs, myid, streamnum, nstreams;
 	double u;
 	Sprng *stream;
 
@@ -108,13 +143,21 @@ int main (int argc, char* argv[])
   	streamnum = myid;	
   	nstreams = numprocs;
 
-	/* Fixed as 2 type generator */
-	gtype = 2;	
-	MPI_Bcast(&gtype,1,MPI_INT,0,MPI_COMM_WORLD);
- 	stream = SelectType(gtype);
 
 	initialize_arrays();
-  
+
+	if(!myid){
+		load_data();
+	}
+
+	/* Broadcast data from file across all the nodes */
+	for(i=0;i<ESIZE;++i){
+		MPI_Bcast(d[i], ESIZE, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	}
+	MPI_Bcast(f, ESIZE, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&gtype,1,MPI_INT,0,MPI_COMM_WORLD);
+ 	
+	stream = SelectType(gtype);	
 	stream->init_sprng(streamnum,nstreams,make_sprng_seed(),SPRNG_DEFAULT);
 
 	/* Main simulation loop */
