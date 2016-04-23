@@ -21,7 +21,7 @@ const double d[ESIZE][ESIZE] = { {0.1, 0.2, 0.5, 0.2},  /*N*/
 			   {0.5, 0.1, 0.1, 0.3},  /*S*/
 			   {0.3, 0.4, 0.2, 0.1}};  /*E*/
 
-typedef enum {N,S,W,E} ExitRoute;
+typedef enum {N,W,S,E} ExitRoute;
 static const char *directions[] = {"N", "W", "S", "E"};	
 
 /* Data stuctures representing the traffic circle:
@@ -55,6 +55,7 @@ void initialize_arrays(){
 /*	function choose_exit - determines on which of the four entrances (N/S/W/E) car will leave the traffic circle 
 	@arg index - integer value of the index, representing the entrance that the car used to enter the traffic circle
 	@return - integer value of the index, representing the entrance that the car will use to leave the traffic circle  */
+
 int choose_exit(int index){
 	ExitRoute er;
 	double u =  (double)rand() / (double)RAND_MAX;
@@ -68,7 +69,7 @@ int choose_exit(int index){
 		er = E;
 	}
 	return offset[er];
-}
+} 
 
 
 /*
@@ -79,12 +80,16 @@ int main (int argc, char* argv[])
 	int i, j, steps, numprocs, myid;
 	double u;
 
+	/* Arrays for accumulating results from all of the nodes*/
+	int sum_wait_cnt[ESIZE], sum_arrival_cnt[ESIZE], sum_queue_accum[ESIZE];
+
 	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
 	initialize_arrays();
   
+	srand(time(NULL));
 	/* Main simulation loop */
 	while (steps++ < SIMSIZE){
 		/* 1 step - new cars arrive at entrances */
@@ -137,17 +142,24 @@ int main (int argc, char* argv[])
 
 	}	/* End of main loop */ 
 
+	/* Getting accumulated results from all nodes [16] */
+	MPI_Reduce(wait_cnt, sum_wait_cnt, ESIZE, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+	MPI_Reduce(arrival_cnt, sum_arrival_cnt, ESIZE, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+	MPI_Reduce(queue_accum, sum_queue_accum, ESIZE, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+
 	/* Generate results */
-	double probability, queue_avg_length;
-	printf("Algorithm results: \n");
-	printf("----------------------------------------------------- \n");	
-	for(i=0;i<ESIZE;++i){
-		probability = (double)wait_cnt[i]/(double)arrival_cnt[i];
-		queue_avg_length = (double)queue_accum[i]/SIMSIZE;		
-		printf("For entrance: %s \n", directions[i]);
-		printf("Probability of waiting: %lf \n", probability);
-		printf("Average queue length: %lf \n", queue_avg_length);
-		printf("----------------------------------------------------- \n");
+	if(!myid) {
+		double probability, queue_avg_length;
+		printf("Algorithm results: \n");
+		printf("----------------------------------------------------- \n");	
+		for(i=0;i<ESIZE;++i){
+			probability = (double)sum_wait_cnt[i]/(double)sum_arrival_cnt[i];
+			queue_avg_length = (double)sum_queue_accum[i]/(SIMSIZE*numprocs);		
+			printf("For entrance: %s \n", directions[i]);
+			printf("Probability of waiting: %lf \n", probability);
+			printf("Average queue length: %lf \n", queue_avg_length);
+			printf("----------------------------------------------------- \n");
+		}
 	}
 
 	MPI_Finalize();
