@@ -1,0 +1,27 @@
+Algorithm results [executed on 16 nodes]: 
+----------------------------------------------------- 
+For entrance: N 
+Total number of arrived cars: 532814 
+Total number of cars that had to wait: 346280 
+Probability of waiting: 64.99 %
+Average queue length: 0.657615 
+----------------------------------------------------- 
+For entrance: W 
+Total number of arrived cars: 533990 
+Total number of cars that had to wait: 353355 
+Probability of waiting: 66.17 %
+Average queue length: 0.731169 
+----------------------------------------------------- 
+For entrance: S 
+Total number of arrived cars: 400309 
+Total number of cars that had to wait: 204720 
+Probability of waiting: 51.14 %
+Average queue length: 0.280820 
+----------------------------------------------------- 
+For entrance: E 
+Total number of arrived cars: 799935 
+Total number of cars that had to wait: 493218 
+Probability of waiting: 61.66 %
+Average queue length: 0.886954 
+----------------------------------------------------- 
+
